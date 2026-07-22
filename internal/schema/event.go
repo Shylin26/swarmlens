@@ -33,7 +33,7 @@ type Event struct {
 	EventID      string    `json:"event_id"`
 	SwarmID      string    `json:"swarm_id"`
 	AgentID      string    `json:"agent_id"`
-	ParentTaskID *string   `json"parent_task_id",omniempty"`
+	ParentTaskID *string   `json:"parent_task_id,omitempty"`
 	Type         EventType `json:"event_type"`
 	Timestamp    time.Time `json:"timestamp"`
 	Payload      Payload   `json:"payload"`
@@ -69,8 +69,8 @@ func (e Event) Validate() error {
 	if e.Type == "" {
 		return errors.New("event:missing event_type")
 	}
-	if e.AgentID == "" {
-		return errors.New("event:missing timestamp")
+	if e.Timestamp.IsZero() {
+		return errors.New("event: missing timestamp")
 	}
 	return nil
 
