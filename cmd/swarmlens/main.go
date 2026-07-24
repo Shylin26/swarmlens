@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Shylin26/swarmlens/internal/detect"
 	"github.com/Shylin26/swarmlens/internal/ingest"
 	"github.com/Shylin26/swarmlens/internal/metrics"
 	"github.com/Shylin26/swarmlens/internal/schema"
@@ -49,17 +50,23 @@ func main() {
 			log.Printf("error recording agent activity: %v", err)
 			continue
 		}
-		if err := store.RecordAgentActivity(ctx, event.SwarmID, event.AgentID); err != nil {
-			log.Printf("error recording agent activity :%v", err)
-			continue
-		}
+
 		if event.Type == schema.EventMessage && event.Payload.RecipientAgentID != nil {
 			entry := fmt.Sprintf("%s->%s", event.AgentID, *event.Payload.RecipientAgentID)
 			if err := store.PushToWindow(ctx, event.SwarmID, entry, 20); err != nil {
-				log.Printf("error pushing to window :%v", err)
+				log.Printf("error pushing to window: %v", err)
 				continue
 			}
-		}
 
+			window, err := store.GetWindow(ctx, event.SwarmID)
+			if err != nil {
+				log.Printf("error reading window: %v", err)
+				continue
+			}
+
+			if detect.LoopDetected(window, 3) {
+				log.Printf("ALERT: loop detected in swarm %s", event.SwarmID)
+			}
+		}
 	}
 }
