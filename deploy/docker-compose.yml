@@ -21,3 +21,10 @@ services:
     container_name: swarmlens-redis
     ports:
       - "16379:6379"
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: swarmlens-prometheus
+    ports:
+      - "19090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
