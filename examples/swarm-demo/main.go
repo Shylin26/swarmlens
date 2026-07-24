@@ -42,6 +42,15 @@ func main() {
 
 	}
 	fmt.Printf("\n[reviewer -> planner]: %s\n", verdict)
+	log.Println("forcing an artificial loop between worker and reviewer...")
+	for i := 0; i < 4; i++ {
+		if _, err := worker.Act(ctx, swarmID, reviewer.ID, &taskID, "ping"); err != nil {
+			log.Fatalf("worker failed during forced loop: %v", err)
+		}
+		if _, err := reviewer.Act(ctx, swarmID, worker.ID, &taskID, "pong"); err != nil {
+			log.Fatalf("reviewer failed during forced loop: %v", err)
+		}
+	}
 
 	log.Println("swarm run complete")
 
