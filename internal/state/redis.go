@@ -33,3 +33,21 @@ func (s *Store) RecordAgentActivity(ctx context.Context, swarmID, agentID string
 
 	return nil
 }
+func (s *Store) PushToWindow(ctx context.Context, swarmID, entry string, maxSize int64) error {
+	windowKey := fmt.Sprintf("swarm:%s:window", swarmID)
+	if err := s.client.LPush(ctx, windowKey, entry).Err(); err != nil {
+		return fmt.Errorf("state failed to push to window :%w", err)
+	}
+	if err := s.client.LTrim(ctx, windowKey, 0, maxSize-1).Err(); err != nil {
+		return fmt.Errorf("state :failed to trim window :%w", err)
+	}
+	return nil
+}
+func (s *Store) GetWindow(ctx context.Context, swarmID string) ([]string, error) {
+	windowKey := fmt.Sprintf("swarm:%s:window", swarmID)
+	entries, err := s.client.LRange(ctx, windowKey, 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("state:failed to read window :%w", err)
+	}
+	return entries, nil
+}
