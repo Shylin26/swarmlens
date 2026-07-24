@@ -1,0 +1,35 @@
+package state
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+type Store struct {
+	client *redis.Client
+}
+
+func NewStore(addr string) *Store {
+	client := redis.NewClient(&redis.Options{
+		Addr: addr,
+	})
+	return &Store{client: client}
+}
+func (s *Store) RecordAgentActivity(ctx context.Context, swarmID, agentID string) error {
+	agentsKey := fmt.Sprintf("swarm:%s:agents", swarmID)
+	if err := s.client.SAdd(ctx, agentsKey, agentID).Err(); err != nil {
+		return fmt.Errorf("state:failed to add agent to swarm set :%w", err)
+	}
+	agentKey := fmt.Sprintf("swarm:%s:agent:%s", swarmID, agentID)
+	if err := s.client.HSet(ctx, agentKey, "last_seen", time.Now().UTC().Format(time.RFC3339)).Err(); err != nil {
+		return fmt.Errorf("state: failed to set agent last_seen: %w", err)
+	}
+	if err := s.client.HIncrBy(ctx, agentKey, "event_count", 1).Err(); err != nil {
+		return fmt.Errorf("state: failed to increment event_count: %w", err)
+	}
+
+	return nil
+}
