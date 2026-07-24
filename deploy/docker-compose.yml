@@ -15,3 +15,9 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       CLUSTER_ID: "5ynEhoP3QParjKBN7o-jrQ"
+  
+  redis:
+    image: redis:7-alpine
+    container_name: swarmlens-redis
+    ports:
+      - "16379:6379"
