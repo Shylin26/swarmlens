@@ -18,10 +18,11 @@ func NewStore(addr string) *Store {
 	})
 	return &Store{client: client}
 }
+
 func (s *Store) RecordAgentActivity(ctx context.Context, swarmID, agentID string) error {
 	agentsKey := fmt.Sprintf("swarm:%s:agents", swarmID)
 	if err := s.client.SAdd(ctx, agentsKey, agentID).Err(); err != nil {
-		return fmt.Errorf("state:failed to add agent to swarm set :%w", err)
+		return fmt.Errorf("state: failed to add agent to swarm set: %w", err)
 	}
 	agentKey := fmt.Sprintf("swarm:%s:agent:%s", swarmID, agentID)
 	if err := s.client.HSet(ctx, agentKey, "last_seen", time.Now().UTC().Format(time.RFC3339)).Err(); err != nil {
@@ -33,21 +34,23 @@ func (s *Store) RecordAgentActivity(ctx context.Context, swarmID, agentID string
 
 	return nil
 }
+
 func (s *Store) PushToWindow(ctx context.Context, swarmID, entry string, maxSize int64) error {
 	windowKey := fmt.Sprintf("swarm:%s:window", swarmID)
 	if err := s.client.LPush(ctx, windowKey, entry).Err(); err != nil {
-		return fmt.Errorf("state failed to push to window :%w", err)
+		return fmt.Errorf("state: failed to push to window: %w", err)
 	}
 	if err := s.client.LTrim(ctx, windowKey, 0, maxSize-1).Err(); err != nil {
-		return fmt.Errorf("state :failed to trim window :%w", err)
+		return fmt.Errorf("state: failed to trim window: %w", err)
 	}
 	return nil
 }
+
 func (s *Store) GetWindow(ctx context.Context, swarmID string) ([]string, error) {
 	windowKey := fmt.Sprintf("swarm:%s:window", swarmID)
 	entries, err := s.client.LRange(ctx, windowKey, 0, -1).Result()
 	if err != nil {
-		return nil, fmt.Errorf("state:failed to read window :%w", err)
+		return nil, fmt.Errorf("state: failed to read window: %w", err)
 	}
 	return entries, nil
 }
@@ -71,4 +74,21 @@ func (s *Store) SetCostEWMA(ctx context.Context, swarmID string, ewma float64) e
 	}
 
 	return nil
+}
+
+func (s *Store) RecordCompletion(ctx context.Context, swarmID, agentID string) error {
+	key := fmt.Sprintf("swarm:%s:completions", swarmID)
+	if err := s.client.RPush(ctx, key, agentID).Err(); err != nil {
+		return fmt.Errorf("state: failed to record completion: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetCompletions(ctx context.Context, swarmID string) ([]string, error) {
+	key := fmt.Sprintf("swarm:%s:completions", swarmID)
+	entries, err := s.client.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("state: failed to get completions: %w", err)
+	}
+	return entries, nil
 }

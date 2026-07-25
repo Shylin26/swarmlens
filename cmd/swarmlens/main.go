@@ -87,5 +87,24 @@ func main() {
 				}
 			}
 		}
+
+		if event.Type == schema.EventMessage && event.ParentTaskID != nil {
+			if err := store.RecordCompletion(ctx, event.SwarmID, event.AgentID); err != nil {
+				log.Printf("error recording completion: %v", err)
+				continue
+			}
+
+			completions, err := store.GetCompletions(ctx, event.SwarmID)
+			if err != nil {
+				log.Printf("error reading completions: %v", err)
+				continue
+			}
+
+			result := detect.DetectRoleCollapse(completions, 0.7)
+			if result.Collapsed {
+				log.Printf("ALERT: role collapse in swarm %s, agent %s completed %.0f%% of tasks",
+					event.SwarmID, result.DominantAgent, result.Share*100)
+			}
+		}
 	}
 }
