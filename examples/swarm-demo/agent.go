@@ -25,10 +25,14 @@ func (a *Agent) Act(ctx context.Context, swarmID string, recipientID string, par
 		return "", fmt.Errorf("agent %s: failed to generate: %w", a.ID, err)
 	}
 
+	tokensOut := len(response) / 4
+	costUSD := float64(tokensOut) * 0.000002
 	meta := schema.Metadata{Framework: "custom", SDKVersion: "0.1.0"}
 	event := schema.NewEvent(swarmID, a.ID, schema.EventMessage, schema.Payload{
 		Content:          &response,
 		RecipientAgentID: &recipientID,
+		TokensOut:        &tokensOut,
+		CostUSD:          &costUSD,
 	}, meta)
 	event.ParentTaskID = parentTaskID
 

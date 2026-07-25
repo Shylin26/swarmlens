@@ -51,3 +51,24 @@ func (s *Store) GetWindow(ctx context.Context, swarmID string) ([]string, error)
 	}
 	return entries, nil
 }
+
+func (s *Store) GetCostEWMA(ctx context.Context, swarmID string) (float64, error) {
+	key := fmt.Sprintf("swarm:%s:cost_ewma", swarmID)
+	val, err := s.client.Get(ctx, key).Float64()
+	if err != nil {
+		if err == redis.Nil {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("state: failed to get cost ewma: %w", err)
+	}
+	return val, nil
+}
+
+func (s *Store) SetCostEWMA(ctx context.Context, swarmID string, ewma float64) error {
+	key := fmt.Sprintf("swarm:%s:cost_ewma", swarmID)
+	if err := s.client.Set(ctx, key, ewma, 0).Err(); err != nil {
+		return fmt.Errorf("state: failed to set cost ewma: %w", err)
+	}
+
+	return nil
+}

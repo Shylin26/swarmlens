@@ -26,10 +26,10 @@ func main() {
 	defer consumer.Close()
 
 	store := state.NewStore("localhost:16379")
+	costDetector := detect.NewCostAnomalyDetector(0.3, 5.0)
 
 	log.Println("swarmlens control plane starting, listening on agent.messages...")
 	log.Println("metrics available at http://localhost:2112/metrics")
-
 	for {
 		event, err := consumer.ReadEvent(ctx)
 		if err != nil {
@@ -66,6 +66,25 @@ func main() {
 
 			if detect.LoopDetected(window, 3) {
 				log.Printf("ALERT: loop detected in swarm %s", event.SwarmID)
+			}
+			if event.Payload.CostUSD != nil {
+				currentEWMA, err := store.GetCostEWMA(ctx, event.SwarmID)
+				if err != nil {
+					log.Printf("error reading cost ewma: %v", err)
+					continue
+				}
+
+				isAnomaly, updatedEWMA := costDetector.CheckAndUpdate(currentEWMA, *event.Payload.CostUSD)
+
+				if err := store.SetCostEWMA(ctx, event.SwarmID, updatedEWMA); err != nil {
+					log.Printf("error storing cost ewma: %v", err)
+					continue
+				}
+
+				if isAnomaly {
+					log.Printf("ALERT: cost anomaly in swarm %s, agent %s cost $%.6f (ewma $%.6f)",
+						event.SwarmID, event.AgentID, *event.Payload.CostUSD, currentEWMA)
+				}
 			}
 		}
 	}
