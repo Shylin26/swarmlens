@@ -20,6 +20,8 @@ func main() {
 	switch os.Args[1] {
 	case "replay":
 		runReplay(os.Args[2:])
+	case "diff":
+		runDiff(os.Args[2:])
 	default:
 		log.Fatalf("unknown subcommand: %s", os.Args[1])
 	}
@@ -60,4 +62,48 @@ func runReplay(args []string) {
 	if err != nil {
 		log.Fatalf("replay failed: %v", err)
 	}
+}
+func runDiff(args []string) {
+	diffCmd := flag.NewFlagSet("diff", flag.ExitOnError)
+	swarmA := diffCmd.String("swarm-a", "", "first swarm ID to compare")
+	swarmB := diffCmd.String("swarm-b", "", "second swarm ID to compare")
+	from := diffCmd.String("from", "72h", "how far back to look for both swarms")
+	diffCmd.Parse(args)
+
+	if *swarmA == "" || *swarmB == "" {
+		log.Fatal("--swarm-a and --swarm-b are both required")
+	}
+
+	duration, err := time.ParseDuration(*from)
+	if err != nil {
+		log.Fatalf("invalid --from duration: %v", err)
+	}
+	fromTime := time.Now().Add(-duration)
+
+	replayer := replay.NewReplayer([]string{"localhost:19092"}, "agent.messages")
+	ctx := context.Background()
+
+	eventsA, err := replayer.CollectEvents(ctx, *swarmA, fromTime, 6)
+	if err != nil {
+		log.Fatalf("failed to collect events for swarm A: %v", err)
+	}
+	eventsB, err := replayer.CollectEvents(ctx, *swarmB, fromTime, 6)
+	if err != nil {
+		log.Fatalf("failed to collect events for swarm B: %v", err)
+	}
+
+	alertsA, rolesA := replay.AnalyzeSwarm(eventsA)
+	alertsB, rolesB := replay.AnalyzeSwarm(eventsB)
+
+	fmt.Printf("Swarm A (%s): %d events, %d alerts\n", *swarmA, len(eventsA), len(alertsA))
+	for _, alert := range alertsA {
+		fmt.Printf("  - %s\n", alert)
+	}
+	fmt.Printf("  role distribution: %s at %.0f%%\n\n", rolesA.DominantAgent, rolesA.Share*100)
+
+	fmt.Printf("Swarm B (%s): %d events, %d alerts\n", *swarmB, len(eventsB), len(alertsB))
+	for _, alert := range alertsB {
+		fmt.Printf("  - %s\n", alert)
+	}
+	fmt.Printf("  role distribution: %s at %.0f%%\n", rolesB.DominantAgent, rolesB.Share*100)
 }
