@@ -69,3 +69,13 @@ func (r *Replayer) replayPartition(ctx context.Context, swarmID string, fromTime
 	return nil
 
 }
+func (r *Replayer) CollectEvents(ctx context.Context, swarmID string, from time.Time, partitionCount int) ([]schema.Event, error) {
+	var events []schema.Event
+	err := r.Replay(ctx, swarmID, from, partitionCount, func(event schema.Event) {
+		events = append(events, event)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
+}
